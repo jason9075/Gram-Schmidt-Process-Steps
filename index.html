@@ -60,10 +60,10 @@
     }
 
     a.github-ribbon {
-      position: fixed;
+      position: absolute;
       top: 0;
       right: 0;
-      z-index: 40;
+      z-index: 10;
     }
 
     .app-shell {
@@ -85,8 +85,8 @@
     .topbar {
       padding: 18px 20px;
       display: grid;
-      grid-template-columns: 1.2fr 1.8fr;
-      gap: 16px;
+      grid-template-columns: 1fr;
+      gap: 12px;
       align-items: center;
     }
 
@@ -105,8 +105,9 @@
 
     .controls {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 12px;
+      margin-top: 14px;
       align-items: end;
     }
 
@@ -118,7 +119,6 @@
     .control label,
     .meta-card span,
     .matrix-card header span,
-    .summary-card header span,
     .step-card header span {
       color: var(--muted);
       font-size: 0.78rem;
@@ -171,6 +171,27 @@
       background: linear-gradient(135deg, var(--accent-2), #ffd18c);
     }
 
+    .floating-knowledge {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 60px;
+      height: 60px;
+      min-height: 60px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      font-size: 1.5rem;
+      line-height: 1;
+      color: var(--text);
+      background: rgba(24, 35, 50, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 50;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    }
+
     .workspace,
     .matrix-stack,
     .step-grid {
@@ -179,24 +200,22 @@
     }
 
     .workspace {
-      grid-template-columns: minmax(0, 1.8fr) minmax(300px, 0.7fr);
+      grid-template-columns: 1fr;
     }
 
     .matrix-trio {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 18px;
     }
 
     .matrix-card,
-    .summary-card,
     .step-card,
     .meta-card {
       padding: 18px;
     }
 
     .matrix-card header,
-    .summary-card header,
     .step-card header {
       display: flex;
       justify-content: space-between;
@@ -205,7 +224,6 @@
     }
 
     .matrix-card h2,
-    .summary-card h2,
     .step-card h2 {
       margin: 0;
       font-size: 1.05rem;
@@ -264,50 +282,6 @@
       display: block;
       margin-top: 8px;
       font-size: 1.1rem;
-    }
-
-    .summary-body {
-      display: grid;
-      gap: 12px;
-    }
-
-    .summary-box {
-      border-radius: 18px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: var(--panel-soft);
-      padding: 16px;
-    }
-
-    .summary-box strong {
-      display: block;
-      margin-bottom: 8px;
-    }
-
-    .summary-metric {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .summary-metric div {
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.04);
-      padding: 12px;
-    }
-
-    .summary-metric span {
-      display: block;
-      color: var(--muted);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-    }
-
-    .summary-vector {
-      font-variant-numeric: tabular-nums;
-      line-height: 1.6;
-      word-break: break-word;
     }
 
     .step-grid {
@@ -373,18 +347,16 @@
 
     .progress-track {
       display: flex;
-      flex-wrap: nowrap;
       align-items: center;
-      gap: 10px;
-      overflow-x: auto;
-      padding-bottom: 2px;
+      gap: 12px;
       margin: 16px 0 12px;
-      scrollbar-width: thin;
+      width: 100%;
     }
 
     .progress-node {
       position: relative;
-      flex: 0 0 88px;
+      flex: 1 1 0;
+      min-width: 0;
       border-radius: 999px;
       height: 10px;
       background: rgba(255, 255, 255, 0.08);
@@ -472,8 +444,12 @@
         grid-template-columns: 1fr;
       }
 
-      .progress-node {
-        flex-basis: 64px;
+      .floating-knowledge {
+        right: 14px;
+        bottom: 14px;
+        width: 54px;
+        height: 54px;
+        min-height: 54px;
       }
 
       .matrix-row {
@@ -487,49 +463,15 @@
   </style>
 </head>
 <body>
-  <a class="github-ribbon" href="https://github.com/your-org/your-repo" target="_blank" rel="noreferrer">
-    <img src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" />
-  </a>
-
   <div class="app-shell">
+    <a class="github-ribbon" href="https://github.com/jason9075/Gram-Schmidt-Process-Steps" target="_blank" rel="noreferrer">
+      <img loading="lazy" decoding="async" width="149" height="149" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_green_007200.png" alt="Fork me on GitHub" />
+    </a>
+
     <section class="panel topbar">
       <div class="hero">
         <h1>Gram-Schmidt Process Lab</h1>
-        <p>Explore how an input matrix becomes an orthogonal basis and then an orthonormal basis, one projection and normalization step at a time. The interface is tuned for teaching up to dimension 10.</p>
-      </div>
-      <div class="controls">
-        <div class="control">
-          <label for="dimension-select">Dimension</label>
-          <select id="dimension-select"></select>
-        </div>
-        <div class="control">
-          <label for="sample-select">Sample</label>
-          <select id="sample-select">
-            <option value="default">Balanced basis</option>
-            <option value="random">Randomize</option>
-            <option value="identity">Identity</option>
-            <option value="dependent">Dependent set</option>
-          </select>
-        </div>
-        <div class="control">
-          <label for="play-mode">Mode</label>
-          <select id="play-mode">
-            <option value="manual">Manual step</option>
-            <option value="auto">Auto play</option>
-          </select>
-        </div>
-        <div class="control">
-          <label>&nbsp;</label>
-          <button id="apply-sample" class="secondary">Apply Sample</button>
-        </div>
-        <div class="control">
-          <label>&nbsp;</label>
-          <button id="recompute">Recompute</button>
-        </div>
-        <div class="control">
-          <label>&nbsp;</label>
-          <button id="open-math" class="warn" aria-label="Open math note">💡</button>
-        </div>
+        <p>Explore how a 3×3 input matrix becomes an orthogonal basis, an orthonormal basis, and finally a QR decomposition, one projection and normalization step at a time.</p>
       </div>
     </section>
 
@@ -539,9 +481,24 @@
           <section class="panel matrix-card">
             <header>
               <h2>Input Matrix V</h2>
-              <span>Editable rows are vectors v₁ ... vₙ</span>
+              <span>A in QR decomposition</span>
             </header>
             <div id="input-matrix" class="matrix-grid"></div>
+            <div class="controls">
+              <div class="control">
+                <label for="sample-select">Sample</label>
+                <select id="sample-select">
+                  <option value="default">Balanced basis</option>
+                  <option value="random">Randomize</option>
+                  <option value="identity">Identity</option>
+                  <option value="dependent">Dependent set</option>
+                </select>
+              </div>
+              <div class="control">
+                <label>&nbsp;</label>
+                <button id="apply-sample" class="secondary">Apply</button>
+              </div>
+            </div>
           </section>
 
           <section class="panel matrix-card">
@@ -555,9 +512,17 @@
           <section class="panel matrix-card">
             <header>
               <h2>Orthonormal Output E</h2>
-              <span>Rows unlock after normalization</span>
+              <span>Q in QR decomposition</span>
             </header>
             <div id="normalized-matrix" class="matrix-grid"></div>
+          </section>
+
+          <section class="panel matrix-card">
+            <header>
+              <h2>Upper-Triangular R</h2>
+              <span>Projection coefficients build each column</span>
+            </header>
+            <div id="r-matrix" class="matrix-grid"></div>
           </section>
         </div>
 
@@ -582,39 +547,6 @@
           </div>
         </section>
       </div>
-
-      <div>
-        <section class="panel summary-card">
-          <header>
-            <h2>Current Vector Summary</h2>
-            <span>High-dimensional friendly numeric state</span>
-          </header>
-          <div class="summary-body">
-            <div class="summary-box">
-              <strong id="summary-title">Vector state</strong>
-              <div class="summary-vector" id="summary-vector">No active vector.</div>
-            </div>
-            <div class="summary-metric">
-              <div>
-                <span>Residual Norm</span>
-                <strong id="summary-norm">0</strong>
-              </div>
-              <div>
-                <span>Normalize Factor</span>
-                <strong id="summary-factor">0</strong>
-              </div>
-              <div>
-                <span>Phase</span>
-                <strong id="summary-phase">Initialization</strong>
-              </div>
-              <div>
-                <span>Rank Signal</span>
-                <strong id="summary-rank">Independent</strong>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
     </section>
 
     <section class="step-grid">
@@ -635,7 +567,6 @@
           <button id="next-step">Next Step</button>
           <button id="play-toggle" class="secondary">Play</button>
           <button id="reset-steps" class="secondary">Reset</button>
-          <button id="clear-matrix" class="secondary" title="Clear matrix">C</button>
         </div>
       </section>
 
@@ -645,10 +576,12 @@
           <span>Numerical trace of the current stage</span>
         </header>
         <div id="log-box" class="log-box"></div>
-        <p class="muted" id="detail-hint">Dense arithmetic is abbreviated when the dimension exceeds 6.</p>
+        <p class="muted" id="detail-hint">Each projection coefficient and diagonal norm is shown explicitly for this 3 × 3 example.</p>
       </section>
     </section>
   </div>
+
+  <button id="open-math" class="floating-knowledge" aria-label="Open math note">💡</button>
 
   <dialog id="math-modal">
     <div class="modal-shell">

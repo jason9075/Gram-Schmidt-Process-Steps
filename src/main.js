@@ -12,12 +12,8 @@ const COLORS = [
   '#ff6f91',
 ];
 
-const dimensionSelect = document.getElementById('dimension-select');
 const sampleSelect = document.getElementById('sample-select');
-const playModeSelect = document.getElementById('play-mode');
 const applySampleButton = document.getElementById('apply-sample');
-const recomputeButton = document.getElementById('recompute');
-const clearMatrixButton = document.getElementById('clear-matrix');
 const prevStepButton = document.getElementById('prev-step');
 const nextStepButton = document.getElementById('next-step');
 const playToggleButton = document.getElementById('play-toggle');
@@ -31,6 +27,7 @@ const mathContent = document.getElementById('math-content');
 const inputMatrixRoot = document.getElementById('input-matrix');
 const outputMatrixRoot = document.getElementById('output-matrix');
 const normalizedMatrixRoot = document.getElementById('normalized-matrix');
+const rMatrixRoot = document.getElementById('r-matrix');
 const formulaBox = document.getElementById('formula-box');
 const warningBox = document.getElementById('warning-box');
 const logBox = document.getElementById('log-box');
@@ -42,12 +39,6 @@ const metaStep = document.getElementById('meta-step');
 const metaVector = document.getElementById('meta-vector');
 const metaStatus = document.getElementById('meta-status');
 const metaRank = document.getElementById('meta-rank');
-const summaryTitle = document.getElementById('summary-title');
-const summaryVector = document.getElementById('summary-vector');
-const summaryNorm = document.getElementById('summary-norm');
-const summaryFactor = document.getElementById('summary-factor');
-const summaryPhase = document.getElementById('summary-phase');
-const summaryRank = document.getElementById('summary-rank');
 
 const sampleFactories = {
   default: (n) => {
@@ -92,6 +83,7 @@ const state = {
   matrix: [],
   orthogonalRows: [],
   normalizedRows: [],
+  rMatrix: [],
   steps: [],
   currentStepIndex: 0,
   playing: false,
@@ -103,6 +95,7 @@ const state = {
 const modalCopy = {
   en: `
     <p>The Gram-Schmidt process converts a linearly independent set $\\{v_1, v_2, \\dots, v_n\\}$ into an orthogonal set $\\{u_1, u_2, \\dots, u_n\\}$ by subtracting projections, then normalizes each nonzero row to obtain an orthonormal set $\\{e_1, e_2, \\dots, e_n\\}$.</p>
+    <p>For QR decomposition in this lab, the identification is $A = V$, $Q = E$, and $R = Q^T A$.</p>
     <p>The recurrence is:</p>
     <p>$$
       u_k = v_k - \\sum_{j=1}^{k-1} \\operatorname{proj}_{u_j}(v_k),
@@ -112,6 +105,12 @@ const modalCopy = {
     <p>Normalization then applies</p>
     <p>$$
       e_k = \\frac{u_k}{\\lVert u_k \\rVert}
+    $$</p>
+    <p>The entries of $R$ come directly from the same steps:</p>
+    <p>$$
+      r_{jk} = \\langle e_j, v_k \\rangle \\quad (j &lt; k),
+      \\qquad
+      r_{kk} = \\lVert u_k \\rVert
     $$</p>
     <p>Each stage in this lab shows the active projection coefficient, the residual vector, the norm, and whether the remaining energy is close to zero.</p>
     <pre><code class="language-js">function gramSchmidtRow(vk, basis) {
@@ -129,6 +128,7 @@ const modalCopy = {
   `,
   zhTW: `
     <p>Gram-Schmidt 程序會把一組線性獨立向量 $\\{v_1, v_2, \\dots, v_n\\}$，透過逐步扣除投影，轉成互相正交的向量組 $\\{u_1, u_2, \\dots, u_n\\}$，接著再把每個非零向量正規化成標準正交向量 $\\{e_1, e_2, \\dots, e_n\\}$。</p>
+    <p>在這個工具裡，QR 分解的對應關係是 $A = V$、$Q = E$、$R = Q^T A$。</p>
     <p>其遞迴公式為：</p>
     <p>$$
       u_k = v_k - \\sum_{j=1}^{k-1} \\operatorname{proj}_{u_j}(v_k),
@@ -138,6 +138,12 @@ const modalCopy = {
     <p>正規化步驟則是：</p>
     <p>$$
       e_k = \\frac{u_k}{\\lVert u_k \\rVert}
+    $$</p>
+    <p>$R$ 的每個元素其實就是同一套過程中的係數：</p>
+    <p>$$
+      r_{jk} = \\langle e_j, v_k \\rangle \\quad (j &lt; k),
+      \\qquad
+      r_{kk} = \\lVert u_k \\rVert
     $$</p>
     <p>這個工具會逐步展示每一個投影係數、剩餘向量 residual、向量範數，以及殘量是否已經趨近零，方便觀察 rank 不足時為什麼會出現零向量。</p>
     <pre><code class="language-js">function gramSchmidtRow(vk, basis) {
@@ -214,26 +220,8 @@ function renderModalContent() {
   }
 }
 
-function syncDimensionSelect() {
-  dimensionSelect.innerHTML = '';
-  for (let n = 2; n <= 10; n += 1) {
-    const option = document.createElement('option');
-    option.value = String(n);
-    option.textContent = `${n} × ${n}`;
-    if (n === state.dimension) {
-      option.selected = true;
-    }
-    dimensionSelect.appendChild(option);
-  }
-}
-
 function loadSample(type) {
   state.matrix = matrixToRows(sampleFactories[type](state.dimension));
-  rebuildComputation(true);
-}
-
-function clearMatrix() {
-  state.matrix = Array.from({ length: state.dimension }, () => Array(state.dimension).fill(0));
   rebuildComputation(true);
 }
 
@@ -297,6 +285,46 @@ function createNormalizedMatrix() {
   ));
 }
 
+function createRMatrix() {
+  rMatrixRoot.innerHTML = '';
+  const step = state.steps[state.currentStepIndex];
+  const snapshot = step.rMatrixSnapshot ?? state.rMatrix;
+  const activeColumn = step.vectorIndex;
+
+  for (let rowIndex = 0; rowIndex < state.dimension; rowIndex += 1) {
+    const rowNode = document.createElement('div');
+    rowNode.className = 'matrix-row';
+    rowNode.style.gridTemplateColumns = `64px repeat(${state.dimension}, minmax(0, 1fr))`;
+
+    const badge = document.createElement('div');
+    badge.className = 'row-badge';
+    badge.textContent = vectorLabel('r', rowIndex);
+    badge.style.background = getColor(rowIndex);
+    rowNode.appendChild(badge);
+
+    for (let colIndex = 0; colIndex < state.dimension; colIndex += 1) {
+      const cell = document.createElement('div');
+      cell.className = 'matrix-output';
+      const value = snapshot[rowIndex]?.[colIndex] ?? null;
+
+      if (rowIndex > colIndex) {
+        cell.textContent = '0';
+        cell.classList.add('pending');
+      } else {
+        const visible = colIndex < activeColumn || (colIndex === activeColumn && value !== null);
+        cell.textContent = visible ? formatNumber(value) : '...';
+        if (!visible) {
+          cell.classList.add('pending');
+        }
+      }
+
+      rowNode.appendChild(cell);
+    }
+
+    rMatrixRoot.appendChild(rowNode);
+  }
+}
+
 function renderMatrixGrid(root, rows, prefix, availabilityFn) {
   root.innerHTML = '';
   const unlockedCount = Math.max(0, state.steps[state.currentStepIndex]?.vectorIndex ?? 0);
@@ -333,6 +361,7 @@ function computeSteps(matrix) {
   const steps = [];
   const orthogonalRows = [];
   const normalizedRows = [];
+  const rMatrix = Array.from({ length: matrix.length }, () => Array(matrix.length).fill(null));
   let dependentCount = 0;
 
   matrix.forEach((vk, vectorIndex) => {
@@ -348,6 +377,8 @@ function computeSteps(matrix) {
         norm: magnitude(vk),
         normalized: null,
         formula: `$$u_1 = v_1$$`,
+        rMatrixSnapshot: rMatrix.map((row) => [...row]),
+        rEntry: { row: 0, col: 0, value: null, pending: true },
         logs: [
           `${vectorLabel('v', vectorIndex)} starts the basis directly.`,
           `Residual = [${vk.map(formatNumber).join(', ')}]`,
@@ -356,21 +387,20 @@ function computeSteps(matrix) {
       });
     }
 
-    orthogonalRows.forEach((uj, projectionIndex) => {
-      const numerator = dot(vk, uj);
-      const denominator = dot(uj, uj);
-      const coefficient = Math.abs(denominator) < EPSILON ? 0 : numerator / denominator;
-      const projected = scale(uj, coefficient);
+    normalizedRows.forEach((ej, projectionIndex) => {
+      const rValue = dot(vk, ej);
+      const projected = scale(ej, rValue);
       residual = subtract(residual, projected);
       projections.push(projected);
+      rMatrix[projectionIndex][vectorIndex] = Number(rValue.toFixed(12));
 
       const verbose = matrix.length <= 6;
       const logs = [
-        `Coefficient for proj_${vectorLatex('u', projectionIndex)}(${vectorLatex('v', vectorIndex)}) is ${formatNumber(coefficient)}.`,
+        `R entry ${vectorLabel('r', projectionIndex)}${vectorIndex + 1} is ${formatNumber(rValue)} from dot(${vectorLabel('e', projectionIndex)}, ${vectorLabel('v', vectorIndex)}).`,
         verbose
-          ? `dot(${vectorLabel('v', vectorIndex)}, ${vectorLabel('u', projectionIndex)}) = ${formatNumber(numerator)}, ||${vectorLabel('u', projectionIndex)}||² = ${formatNumber(denominator)}.`
+          ? `dot(${vectorLabel('e', projectionIndex)}, ${vectorLabel('v', vectorIndex)}) = ${formatNumber(rValue)}.`
           : `Inner-product detail hidden in compact mode for dimension ${matrix.length}.`,
-        `Projected component = [${projected.map(formatNumber).join(', ')}]`,
+        `Projected component = ${formatNumber(rValue)} · ${vectorLabel('e', projectionIndex)} = [${projected.map(formatNumber).join(', ')}]`,
         `Residual after subtraction = [${residual.map(formatNumber).join(', ')}]`,
       ];
 
@@ -380,10 +410,12 @@ function computeSteps(matrix) {
         projectionIndex,
         residual: [...residual],
         projection: [...projected],
-        coefficient,
+        coefficient: rValue,
         norm: magnitude(residual),
         normalized: null,
-        formula: `$$u_${vectorIndex + 1}^{(${projectionIndex + 1})} = v_${vectorIndex + 1} - \\sum_{j=1}^{${projectionIndex + 1}} \\operatorname{proj}_{u_j}(v_${vectorIndex + 1})$$`,
+        formula: `$$r_{${projectionIndex + 1},${vectorIndex + 1}} = \\langle e_${projectionIndex + 1}, v_${vectorIndex + 1} \\rangle, \\qquad u_${vectorIndex + 1}^{(${projectionIndex + 1})} = v_${vectorIndex + 1} - \\sum_{j=1}^{${projectionIndex + 1}} r_{j,${vectorIndex + 1}} e_j$$`,
+        rMatrixSnapshot: rMatrix.map((row) => [...row]),
+        rEntry: { row: projectionIndex, col: vectorIndex, value: rValue, pending: false },
         logs,
         dependent: false,
       });
@@ -400,6 +432,7 @@ function computeSteps(matrix) {
 
     orthogonalRows.push(orthogonal);
     normalizedRows.push(normalized);
+    rMatrix[vectorIndex][vectorIndex] = dependent ? 0 : Number(norm.toFixed(12));
 
     steps.push({
       type: 'finalize',
@@ -408,9 +441,11 @@ function computeSteps(matrix) {
       residual: [...orthogonal],
       norm,
       normalized: [...normalized],
+      rMatrixSnapshot: rMatrix.map((row) => [...row]),
+      rEntry: { row: vectorIndex, col: vectorIndex, value: dependent ? 0 : norm, pending: false },
       formula: dependent
-        ? `$$u_${vectorIndex + 1} \\approx 0 \\Rightarrow v_${vectorIndex + 1} \\in \\operatorname{span}(u_1, \\dots, u_${vectorIndex})$$`
-        : `$$u_${vectorIndex + 1} = v_${vectorIndex + 1} - \\sum_{j=1}^{${vectorIndex}} \\operatorname{proj}_{u_j}(v_${vectorIndex + 1})$$`,
+        ? `$$u_${vectorIndex + 1} \\approx 0 \\Rightarrow v_${vectorIndex + 1} \\in \\operatorname{span}(e_1, \\dots, e_${vectorIndex})$$`
+        : `$$u_${vectorIndex + 1} = v_${vectorIndex + 1} - \\sum_{j=1}^{${vectorIndex}} r_{j,${vectorIndex + 1}} e_j$$`,
       logs: dependent
         ? [
             `${vectorLabel('v', vectorIndex)} is linearly dependent on previous rows.`,
@@ -421,6 +456,7 @@ function computeSteps(matrix) {
             `${vectorLabel('u', vectorIndex)} is committed to the orthogonal basis.`,
             `Residual norm = ${formatNumber(norm)}.`,
             `Orthogonal row = [${orthogonal.map(formatNumber).join(', ')}]`,
+            `Diagonal QR entry ${vectorLabel('r', vectorIndex)}${vectorIndex + 1} = ||${vectorLabel('u', vectorIndex)}|| = ${formatNumber(norm)}.`,
           ],
       dependent,
     });
@@ -432,9 +468,11 @@ function computeSteps(matrix) {
       residual: [...orthogonal],
       norm,
       normalized: [...normalized],
+      rMatrixSnapshot: rMatrix.map((row) => [...row]),
+      rEntry: { row: vectorIndex, col: vectorIndex, value: dependent ? 0 : norm, pending: false },
       formula: dependent
         ? `$$\\lVert u_${vectorIndex + 1} \\rVert \\approx 0 \\Rightarrow e_${vectorIndex + 1} \\text{ is skipped}$$`
-        : `$$e_${vectorIndex + 1} = \\frac{u_${vectorIndex + 1}}{\\lVert u_${vectorIndex + 1} \\rVert}$$`,
+        : `$$r_{${vectorIndex + 1},${vectorIndex + 1}} = \\lVert u_${vectorIndex + 1} \\rVert, \\qquad e_${vectorIndex + 1} = \\frac{u_${vectorIndex + 1}}{r_{${vectorIndex + 1},${vectorIndex + 1}}}$$`,
       logs: dependent
         ? [
             `Normalization is skipped because ${vectorLabel('u', vectorIndex)} is the zero vector.`,
@@ -453,16 +491,18 @@ function computeSteps(matrix) {
     steps,
     orthogonalRows,
     normalizedRows,
+    rMatrix,
     dependentCount,
   };
 }
 
 function rebuildComputation(resetStepIndex) {
   stopPlayback();
-  const { steps, orthogonalRows, normalizedRows, dependentCount } = computeSteps(state.matrix);
+  const { steps, orthogonalRows, normalizedRows, rMatrix, dependentCount } = computeSteps(state.matrix);
   state.steps = steps;
   state.orthogonalRows = orthogonalRows;
   state.normalizedRows = normalizedRows;
+  state.rMatrix = rMatrix;
   state.dependentCount = dependentCount;
   if (resetStepIndex) {
     state.currentStepIndex = 0;
@@ -473,16 +513,27 @@ function rebuildComputation(resetStepIndex) {
 }
 
 function renderProgress() {
+  const currentStep = state.steps[state.currentStepIndex];
   progressTrack.innerHTML = '';
-  progressTrack.style.setProperty('--step-count', String(state.steps.length));
-  state.steps.forEach((step, index) => {
+  for (let vectorIndex = 0; vectorIndex < state.dimension; vectorIndex += 1) {
     const node = document.createElement('div');
     node.className = 'progress-node';
-    const fill = index < state.currentStepIndex ? 1 : index === state.currentStepIndex ? 0.66 : 0;
+    let fill = 0;
+    if (vectorIndex < currentStep.vectorIndex) {
+      fill = 1;
+    } else if (vectorIndex === currentStep.vectorIndex) {
+      if (currentStep.type === 'normalize') {
+        fill = 1;
+      } else if (currentStep.type === 'finalize') {
+        fill = 0.72;
+      } else {
+        fill = 0.38;
+      }
+    }
     node.style.setProperty('--fill', String(fill));
-    node.title = `${vectorLabel(step.type === 'normalize' ? 'e' : 'u', step.vectorIndex)} · ${step.type}`;
+    node.title = `${vectorLabel('u', vectorIndex)} progress`;
     progressTrack.appendChild(node);
-  });
+  }
 }
 
 function renderFormula(step) {
@@ -514,24 +565,6 @@ function renderLogs(step) {
   });
 }
 
-function renderSummary(step) {
-  const targetLabel = step.type === 'normalize' ? vectorLabel('e', step.vectorIndex) : vectorLabel('u', step.vectorIndex);
-  const vectorData = step.type === 'normalize' ? step.normalized : step.residual;
-  const factor = step.norm && step.norm > EPSILON ? 1 / step.norm : 0;
-  summaryTitle.textContent = `${targetLabel} state`;
-  summaryVector.textContent = `[${(vectorData ?? []).map(formatNumber).join(', ')}]`;
-  summaryNorm.textContent = formatNumber(step.norm ?? 0);
-  summaryFactor.textContent = formatNumber(factor);
-  summaryPhase.textContent = step.type === 'normalize'
-    ? 'Normalization'
-    : step.type === 'finalize'
-      ? 'Orthogonal commit'
-      : step.type === 'initialize'
-        ? 'Initialization'
-        : 'Projection';
-  summaryRank.textContent = step.dependent ? 'Dependent / skipped' : 'Independent';
-}
-
 function updateMeta(step, dependentCount) {
   metaStep.textContent = `${state.currentStepIndex + 1} / ${state.steps.length}`;
   metaVector.textContent = step.type === 'normalize'
@@ -556,9 +589,7 @@ function updateMeta(step, dependentCount) {
     timelineLabel.textContent = `Projection ${projectionCurrent} of ${projectionTotal}`;
   }
   timelineMode.textContent = state.playing ? 'Auto playback' : 'Manual playback';
-  detailHint.textContent = state.dimension > 6
-    ? 'Dense arithmetic is abbreviated when the dimension exceeds 6.'
-    : 'All inner-product and normalization details are shown in the log for this dimension.';
+  detailHint.textContent = 'All projection coefficients, residuals, and diagonal QR entries are shown in the log.';
 }
 
 function renderAll() {
@@ -569,11 +600,11 @@ function renderAll() {
   createInputMatrix();
   createOutputMatrix();
   createNormalizedMatrix();
+  createRMatrix();
   renderProgress();
   renderFormula(step);
   renderWarning(step, state.dependentCount);
   renderLogs(step);
-  renderSummary(step);
   updateMeta(step, state.dependentCount);
 }
 
@@ -609,20 +640,7 @@ function startPlayback() {
   }, 1200);
 }
 
-function setMode(mode) {
-  if (mode === 'auto') {
-    startPlayback();
-  } else {
-    stopPlayback();
-  }
-}
-
 function bindEvents() {
-  dimensionSelect.addEventListener('change', (event) => {
-    state.dimension = Number(event.target.value);
-    loadSample(sampleSelect.value === 'random' ? 'default' : sampleSelect.value);
-  });
-
   applySampleButton.addEventListener('click', () => {
     if (sampleSelect.value === 'random') {
       state.matrix = matrixToRows(sampleFactories.random(state.dimension));
@@ -638,17 +656,6 @@ function bindEvents() {
       rebuildComputation(true);
     }
   });
-
-  playModeSelect.addEventListener('change', (event) => {
-    setMode(event.target.value);
-  });
-
-  recomputeButton.addEventListener('click', () => {
-    state.matrix = collectInputMatrix();
-    rebuildComputation(false);
-  });
-
-  clearMatrixButton.addEventListener('click', clearMatrix);
   prevStepButton.addEventListener('click', () => {
     stopPlayback();
     goToStep(state.currentStepIndex - 1);
@@ -693,7 +700,6 @@ function bindEvents() {
 }
 
 function init() {
-  syncDimensionSelect();
   state.matrix = matrixToRows(sampleFactories.default(state.dimension));
   bindEvents();
   rebuildComputation(true);
