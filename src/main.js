@@ -101,7 +101,6 @@ const state = {
 
 const visualizationState = {
   instances: [],
-  frameHandle: null,
 };
 
 const modalCopy = {
@@ -225,10 +224,6 @@ function formatNumber(value) {
 
 function vectorLabel(prefix, index) {
   return `${prefix}${index + 1}`;
-}
-
-function vectorLatex(prefix, index) {
-  return `${prefix}_{${index + 1}}`;
 }
 
 function getColor(index) {
@@ -434,7 +429,7 @@ function ensureVisualizationFocus(instance, radius, frameKey) {
   instance.frameKey = frameKey;
 }
 
-function addArrow(group, vectorValues, color, { active = false, dashed = false } = {}) {
+function addArrow(group, vectorValues, color, { active = false } = {}) {
   const directionVector = Array.isArray(vectorValues) ? toVector3(vectorValues) : vectorValues.clone();
   const length = directionVector.length();
   if (length < EPSILON) {
@@ -453,12 +448,7 @@ function addArrow(group, vectorValues, color, { active = false, dashed = false }
   if (active) {
     arrow.line.material.linewidth = 2;
   }
-  if (dashed) {
-    arrow.line.material.transparent = true;
-    arrow.line.material.opacity = 0.28;
-    arrow.cone.material.transparent = true;
-    arrow.cone.material.opacity = 0.28;
-  } else if (!active) {
+  if (!active) {
     arrow.line.material.transparent = true;
     arrow.line.material.opacity = 0.88;
     arrow.cone.material.transparent = true;
@@ -567,7 +557,7 @@ function renderVisualizations() {
 }
 
 function animateVisualizations() {
-  visualizationState.frameHandle = window.requestAnimationFrame(animateVisualizations);
+  window.requestAnimationFrame(animateVisualizations);
   visualizationState.instances.forEach((instance) => {
     instance.controls.update();
     instance.renderer.render(instance.scene, instance.camera);
@@ -794,7 +784,6 @@ function computeSteps(matrix) {
         vectorIndex,
         projectionIndex,
         residual: [...residual],
-        projection: [...projected],
         coefficient: rValue,
         norm: magnitude(residual),
         normalized: null,
