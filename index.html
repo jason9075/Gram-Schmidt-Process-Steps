@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gram-Schmidt Process Steps</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prism-themes@1.9.0/themes/prism-nord.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
+
+  <style>
+    :root {
+      --bg-0: #0f1722;
+      --bg-1: #182332;
+      --bg-2: #223147;
+      --panel: rgba(24, 35, 50, 0.92);
+      --panel-soft: rgba(34, 49, 71, 0.86);
+      --line: rgba(216, 222, 233, 0.12);
+      --text: #e5edf7;
+      --muted: #8ca1bb;
+      --accent: #7cc7d9;
+      --accent-2: #ffb866;
+      --accent-3: #a2d886;
+      --danger: #f47c96;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+      --v1: #7cc7d9;
+      --v2: #a2d886;
+      --v3: #ffb866;
+      --v4: #f47c96;
+      --v5: #caa7ff;
+      --v6: #8db2ff;
+      --v7: #5fd0b3;
+      --v8: #ffd56b;
+      --v9: #ff8f6b;
+      --v10: #ff6f91;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(124, 199, 217, 0.2), transparent 24%),
+        radial-gradient(circle at top right, rgba(162, 216, 134, 0.16), transparent 18%),
+        linear-gradient(180deg, var(--bg-0), #0a1119 46%, #0b1220);
+      color: var(--text);
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+
+    body {
+      padding: 24px;
+    }
+
+    a.github-ribbon {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 40;
+    }
+
+    .app-shell {
+      position: relative;
+      display: grid;
+      gap: 18px;
+      max-width: 1560px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .topbar {
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: 1.2fr 1.8fr;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.7rem, 3vw, 2.6rem);
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 60ch;
+      line-height: 1.45;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .control {
+      display: grid;
+      gap: 6px;
+    }
+
+    .control label,
+    .meta-card span,
+    .matrix-card header span,
+    .summary-card header span,
+    .step-card header span {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    select,
+    button,
+    input {
+      font: inherit;
+    }
+
+    select,
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 11px 12px;
+      min-height: 44px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      min-height: 44px;
+      color: var(--bg-0);
+      background: linear-gradient(135deg, var(--accent), #a7e8f7);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(124, 199, 217, 0.18);
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+    }
+
+    button.warn {
+      background: linear-gradient(135deg, var(--accent-2), #ffd18c);
+    }
+
+    .workspace,
+    .matrix-stack,
+    .step-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .workspace {
+      grid-template-columns: minmax(0, 1.8fr) minmax(300px, 0.7fr);
+    }
+
+    .matrix-trio {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .matrix-card,
+    .summary-card,
+    .step-card,
+    .meta-card {
+      padding: 18px;
+    }
+
+    .matrix-card header,
+    .summary-card header,
+    .step-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+
+    .matrix-card h2,
+    .summary-card h2,
+    .step-card h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .matrix-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .matrix-row {
+      display: grid;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .row-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 54px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-weight: 700;
+      color: #071019;
+    }
+
+    .matrix-cell {
+      min-width: 0;
+    }
+
+    .matrix-output {
+      min-height: 44px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .matrix-output.pending {
+      opacity: 0.35;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .meta-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.1rem;
+    }
+
+    .summary-body {
+      display: grid;
+      gap: 12px;
+    }
+
+    .summary-box {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--panel-soft);
+      padding: 16px;
+    }
+
+    .summary-box strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .summary-metric {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-metric div {
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 12px;
+    }
+
+    .summary-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .summary-vector {
+      font-variant-numeric: tabular-nums;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .step-grid {
+      grid-template-columns: 1.25fr 1fr;
+    }
+
+    .status-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 12px;
+      color: var(--muted);
+    }
+
+    .formula-box,
+    .log-box,
+    .warning-box {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--panel-soft);
+      padding: 16px;
+    }
+
+    .formula-box {
+      min-height: 124px;
+    }
+
+    .log-box {
+      min-height: 240px;
+      max-height: 360px;
+      overflow: auto;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .log-entry {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .log-entry:last-child {
+      border-bottom: 0;
+    }
+
+    .warning-box {
+      display: none;
+      color: #ffdbe3;
+      border-color: rgba(244, 124, 150, 0.35);
+      background: rgba(244, 124, 150, 0.11);
+    }
+
+    .warning-box.visible {
+      display: block;
+    }
+
+    .step-controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) 68px;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .progress-track {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      margin: 16px 0 12px;
+      scrollbar-width: thin;
+    }
+
+    .progress-node {
+      position: relative;
+      flex: 0 0 88px;
+      border-radius: 999px;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .progress-node::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: scaleX(var(--fill, 0));
+      transform-origin: left center;
+      background: linear-gradient(90deg, var(--accent), var(--accent-3));
+    }
+
+    dialog {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      width: min(840px, calc(100vw - 32px));
+      padding: 0;
+      background: #0f1824;
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+
+    dialog::backdrop {
+      background: rgba(1, 6, 12, 0.72);
+      backdrop-filter: blur(8px);
+    }
+
+    .modal-shell {
+      padding: 20px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal-body {
+      color: #d9e5f3;
+      line-height: 1.65;
+    }
+
+    .modal-body pre {
+      border-radius: 16px;
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    @media (max-width: 1200px) {
+      .topbar,
+      .workspace,
+      .step-grid,
+      .matrix-trio {
+        grid-template-columns: 1fr;
+      }
+
+      .controls,
+      .meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 14px;
+      }
+
+      .controls,
+      .meta-grid,
+      .step-controls {
+        grid-template-columns: 1fr;
+      }
+
+      .progress-node {
+        flex-basis: 64px;
+      }
+
+      .matrix-row {
+        grid-template-columns: 1fr !important;
+      }
+
+      .row-badge {
+        width: fit-content;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="github-ribbon" href="https://github.com/your-org/your-repo" target="_blank" rel="noreferrer">
+    <img src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" />
+  </a>
+
+  <div class="app-shell">
+    <section class="panel topbar">
+      <div class="hero">
+        <h1>Gram-Schmidt Process Lab</h1>
+        <p>Explore how an input matrix becomes an orthogonal basis and then an orthonormal basis, one projection and normalization step at a time. The interface is tuned for teaching up to dimension 10.</p>
+      </div>
+      <div class="controls">
+        <div class="control">
+          <label for="dimension-select">Dimension</label>
+          <select id="dimension-select"></select>
+        </div>
+        <div class="control">
+          <label for="sample-select">Sample</label>
+          <select id="sample-select">
+            <option value="default">Balanced basis</option>
+            <option value="random">Randomize</option>
+            <option value="identity">Identity</option>
+            <option value="dependent">Dependent set</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="play-mode">Mode</label>
+          <select id="play-mode">
+            <option value="manual">Manual step</option>
+            <option value="auto">Auto play</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>&nbsp;</label>
+          <button id="apply-sample" class="secondary">Apply Sample</button>
+        </div>
+        <div class="control">
+          <label>&nbsp;</label>
+          <button id="recompute">Recompute</button>
+        </div>
+        <div class="control">
+          <label>&nbsp;</label>
+          <button id="open-math" class="warn" aria-label="Open math note">💡</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="matrix-stack">
+        <div class="matrix-trio">
+          <section class="panel matrix-card">
+            <header>
+              <h2>Input Matrix V</h2>
+              <span>Editable rows are vectors v₁ ... vₙ</span>
+            </header>
+            <div id="input-matrix" class="matrix-grid"></div>
+          </section>
+
+          <section class="panel matrix-card">
+            <header>
+              <h2>Orthogonal Output U</h2>
+              <span>Rows unlock after projection is committed</span>
+            </header>
+            <div id="output-matrix" class="matrix-grid"></div>
+          </section>
+
+          <section class="panel matrix-card">
+            <header>
+              <h2>Orthonormal Output E</h2>
+              <span>Rows unlock after normalization</span>
+            </header>
+            <div id="normalized-matrix" class="matrix-grid"></div>
+          </section>
+        </div>
+
+        <section class="panel meta-card">
+          <div class="meta-grid">
+            <div>
+              <span>Current Step</span>
+              <strong id="meta-step">1 / 1</strong>
+            </div>
+            <div>
+              <span>Current Vector</span>
+              <strong id="meta-vector">u₁</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong id="meta-status">Projection phase</strong>
+            </div>
+            <div>
+              <span>Rank Hint</span>
+              <strong id="meta-rank">Independent</strong>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="panel summary-card">
+          <header>
+            <h2>Current Vector Summary</h2>
+            <span>High-dimensional friendly numeric state</span>
+          </header>
+          <div class="summary-body">
+            <div class="summary-box">
+              <strong id="summary-title">Vector state</strong>
+              <div class="summary-vector" id="summary-vector">No active vector.</div>
+            </div>
+            <div class="summary-metric">
+              <div>
+                <span>Residual Norm</span>
+                <strong id="summary-norm">0</strong>
+              </div>
+              <div>
+                <span>Normalize Factor</span>
+                <strong id="summary-factor">0</strong>
+              </div>
+              <div>
+                <span>Phase</span>
+                <strong id="summary-phase">Initialization</strong>
+              </div>
+              <div>
+                <span>Rank Signal</span>
+                <strong id="summary-rank">Independent</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="step-grid">
+      <section class="panel step-card">
+        <header>
+          <h2>Process Timeline</h2>
+          <span>Projection details and formula tracking</span>
+        </header>
+        <div class="status-line">
+          <div id="timeline-label">Projection 1 of 1</div>
+          <div id="timeline-mode">Manual playback</div>
+        </div>
+        <div id="progress-track" class="progress-track"></div>
+        <div id="formula-box" class="formula-box"></div>
+        <div id="warning-box" class="warning-box"></div>
+        <div class="step-controls">
+          <button id="prev-step" class="secondary">Back</button>
+          <button id="next-step">Next Step</button>
+          <button id="play-toggle" class="secondary">Play</button>
+          <button id="reset-steps" class="secondary">Reset</button>
+          <button id="clear-matrix" class="secondary" title="Clear matrix">C</button>
+        </div>
+      </section>
+
+      <section class="panel step-card">
+        <header>
+          <h2>Calculation Log</h2>
+          <span>Numerical trace of the current stage</span>
+        </header>
+        <div id="log-box" class="log-box"></div>
+        <p class="muted" id="detail-hint">Dense arithmetic is abbreviated when the dimension exceeds 6.</p>
+      </section>
+    </section>
+  </div>
+
+  <dialog id="math-modal">
+    <div class="modal-shell">
+      <div class="modal-header">
+        <div>
+          <strong>Math Principle</strong>
+          <div class="muted">Gram-Schmidt orthogonalization and projection geometry</div>
+        </div>
+        <div class="modal-actions">
+          <button id="language-toggle" class="secondary" type="button">Eng/中</button>
+          <button id="close-math" class="secondary" type="button">Close</button>
+        </div>
+      </div>
+      <div id="math-content" class="modal-body"></div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
