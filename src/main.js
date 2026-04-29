@@ -112,6 +112,19 @@ const modalCopy = {
       \\qquad
       r_{kk} = \\lVert u_k \\rVert
     $$</p>
+    <p>Why does this become $R = Q^T A$? Start from the QR factorization</p>
+    <p>$$
+      A = QR
+    $$</p>
+    <p>Because the columns or rows of $Q$ are orthonormal in this lab's convention, we have</p>
+    <p>$$
+      Q^T Q = I
+    $$</p>
+    <p>Multiplying $A = QR$ on the left by $Q^T$ gives</p>
+    <p>$$
+      Q^T A = Q^T Q R = I R = R
+    $$</p>
+    <p>So each entry of $R$ is just the coordinate of $A$ measured in the orthonormal basis $Q$, which is why the projection coefficients fill the upper-triangular matrix.</p>
     <p>Each stage in this lab shows the active projection coefficient, the residual vector, the norm, and whether the remaining energy is close to zero.</p>
     <pre><code class="language-js">function gramSchmidtRow(vk, basis) {
   let residual = [...vk];
@@ -145,6 +158,19 @@ const modalCopy = {
       \\qquad
       r_{kk} = \\lVert u_k \\rVert
     $$</p>
+    <p>那麼為什麼會推出 $R = Q^T A$？先從 QR 分解本身開始：</p>
+    <p>$$
+      A = QR
+    $$</p>
+    <p>因為在這個工具的記號下，$Q$ 的欄或列是正交且長度為 1 的，所以有：</p>
+    <p>$$
+      Q^T Q = I
+    $$</p>
+    <p>把 $A = QR$ 左乘 $Q^T$，就得到：</p>
+    <p>$$
+      Q^T A = Q^T Q R = I R = R
+    $$</p>
+    <p>所以 $R$ 的每個元素，本質上就是把 $A$ 投影到正交標準基底 $Q$ 上得到的座標，這也是為什麼前面那些 projection coefficient 會正好填進上三角矩陣。</p>
     <p>這個工具會逐步展示每一個投影係數、剩餘向量 residual、向量範數，以及殘量是否已經趨近零，方便觀察 rank 不足時為什麼會出現零向量。</p>
     <pre><code class="language-js">function gramSchmidtRow(vk, basis) {
   let residual = [...vk];
@@ -432,7 +458,6 @@ function computeSteps(matrix) {
 
     orthogonalRows.push(orthogonal);
     normalizedRows.push(normalized);
-    rMatrix[vectorIndex][vectorIndex] = dependent ? 0 : Number(norm.toFixed(12));
 
     steps.push({
       type: 'finalize',
@@ -442,7 +467,7 @@ function computeSteps(matrix) {
       norm,
       normalized: [...normalized],
       rMatrixSnapshot: rMatrix.map((row) => [...row]),
-      rEntry: { row: vectorIndex, col: vectorIndex, value: dependent ? 0 : norm, pending: false },
+      rEntry: { row: vectorIndex, col: vectorIndex, value: norm, pending: true },
       formula: dependent
         ? `$$u_${vectorIndex + 1} \\approx 0 \\Rightarrow v_${vectorIndex + 1} \\in \\operatorname{span}(e_1, \\dots, e_${vectorIndex})$$`
         : `$$u_${vectorIndex + 1} = v_${vectorIndex + 1} - \\sum_{j=1}^{${vectorIndex}} r_{j,${vectorIndex + 1}} e_j$$`,
@@ -456,10 +481,12 @@ function computeSteps(matrix) {
             `${vectorLabel('u', vectorIndex)} is committed to the orthogonal basis.`,
             `Residual norm = ${formatNumber(norm)}.`,
             `Orthogonal row = [${orthogonal.map(formatNumber).join(', ')}]`,
-            `Diagonal QR entry ${vectorLabel('r', vectorIndex)}${vectorIndex + 1} = ||${vectorLabel('u', vectorIndex)}|| = ${formatNumber(norm)}.`,
+            `The diagonal QR entry will unlock at normalization: r_${vectorIndex + 1}${vectorIndex + 1} = ||${vectorLabel('u', vectorIndex)}|| = ${formatNumber(norm)}.`,
           ],
       dependent,
     });
+
+    rMatrix[vectorIndex][vectorIndex] = dependent ? 0 : Number(norm.toFixed(12));
 
     steps.push({
       type: 'normalize',
@@ -557,10 +584,21 @@ function renderWarning(step, dependentCount) {
 
 function renderLogs(step) {
   logBox.innerHTML = '';
-  step.logs.forEach((message) => {
+  const total = step.logs.length;
+  step.logs.forEach((message, index) => {
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    entry.textContent = message;
+
+    const number = document.createElement('div');
+    number.className = 'log-index';
+    number.textContent = `#${total - index}`;
+
+    const content = document.createElement('div');
+    content.className = 'log-message';
+    content.textContent = message;
+
+    entry.appendChild(number);
+    entry.appendChild(content);
     logBox.appendChild(entry);
   });
 }

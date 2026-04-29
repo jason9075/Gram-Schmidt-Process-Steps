@@ -319,12 +319,35 @@
     }
 
     .log-entry {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
       padding: 10px 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .log-entry:last-child {
       border-bottom: 0;
+    }
+
+    .log-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(124, 199, 217, 0.14);
+      border: 1px solid rgba(124, 199, 217, 0.22);
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .log-message {
+      min-width: 0;
     }
 
     .warning-box {
@@ -573,7 +596,7 @@
       <section class="panel step-card">
         <header>
           <h2>Calculation Log</h2>
-          <span>Numerical trace of the current stage</span>
+          <span>Read order: bottom → top</span>
         </header>
         <div id="log-box" class="log-box"></div>
         <p class="muted" id="detail-hint">Each projection coefficient and diagonal norm is shown explicitly for this 3 × 3 example.</p>
