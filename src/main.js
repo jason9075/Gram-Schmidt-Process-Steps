@@ -1,3 +1,6 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 const EPSILON = 1e-8;
 const COLORS = [
   '#7cc7d9',
@@ -23,6 +26,10 @@ const closeMathButton = document.getElementById('close-math');
 const languageToggle = document.getElementById('language-toggle');
 const mathModal = document.getElementById('math-modal');
 const mathContent = document.getElementById('math-content');
+const inputSpaceView = document.getElementById('input-space-view');
+const orthonormalView = document.getElementById('orthonormal-view');
+const inputSpaceNote = document.getElementById('input-space-note');
+const orthonormalNote = document.getElementById('orthonormal-note');
 
 const inputMatrixRoot = document.getElementById('input-matrix');
 const outputMatrixRoot = document.getElementById('output-matrix');
@@ -90,6 +97,11 @@ const state = {
   autoTimer: null,
   modalLanguage: 'en',
   dependentCount: 0,
+};
+
+const visualizationState = {
+  instances: [],
+  frameHandle: null,
 };
 
 const modalCopy = {
@@ -223,8 +235,346 @@ function getColor(index) {
   return COLORS[index % COLORS.length];
 }
 
+function colorToThree(index) {
+  return new THREE.Color(getColor(index));
+}
+
 function matrixToRows(matrix) {
   return matrix.map((row) => [...row]);
+}
+
+function toVector3(values) {
+  return new THREE.Vector3(values[0] ?? 0, values[1] ?? 0, values[2] ?? 0);
+}
+
+function clearThreeGroup(group) {
+  while (group.children.length > 0) {
+    const child = group.children.pop();
+    if (child.geometry) {
+      child.geometry.dispose();
+    }
+    if (Array.isArray(child.material)) {
+      child.material.forEach((material) => material.dispose());
+    } else if (child.material) {
+      child.material.dispose();
+    }
+  }
+}
+
+function computeSceneRadius(vectors) {
+  const maxMagnitude = vectors.reduce((maxValue, vector) => {
+    const current = Array.isArray(vector) ? magnitude(vector) : vector.length();
+    return Math.max(maxValue, current);
+  }, 1);
+  return Math.max(1.5, maxMagnitude * 1.35);
+}
+
+function addSceneFrame(group, vectors, color) {
+  const v1 = toVector3(vectors[0]);
+  const v2 = toVector3(vectors[1]);
+  const v3 = toVector3(vectors[2]);
+  const points = [
+    new THREE.Vector3(0, 0, 0),
+    v1.clone(),
+    v2.clone(),
+    v3.clone(),
+    v1.clone().add(v2),
+    v1.clone().add(v3),
+    v2.clone().add(v3),
+    v1.clone().add(v2).add(v3),
+  ];
+  const edges = [
+    [0, 1], [0, 2], [0, 3],
+    [1, 4], [1, 5],
+    [2, 4], [2, 6],
+    [3, 5], [3, 6],
+    [4, 7], [5, 7], [6, 7],
+  ];
+  const positions = [];
+  edges.forEach(([from, to]) => {
+    positions.push(points[from].x, points[from].y, points[from].z);
+    positions.push(points[to].x, points[to].y, points[to].z);
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const line = new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.34 }),
+  );
+  group.add(line);
+}
+
+function addParallelepipedMesh(group, vectors, color) {
+  const v1 = toVector3(vectors[0]);
+  const v2 = toVector3(vectors[1]);
+  const v3 = toVector3(vectors[2]);
+  const points = [
+    new THREE.Vector3(0, 0, 0),
+    v1.clone(),
+    v2.clone(),
+    v3.clone(),
+    v1.clone().add(v2),
+    v1.clone().add(v3),
+    v2.clone().add(v3),
+    v1.clone().add(v2).add(v3),
+  ];
+  const indices = [
+    0, 1, 4, 0, 4, 2,
+    0, 1, 5, 0, 5, 3,
+    0, 2, 6, 0, 6, 3,
+    7, 4, 1, 7, 1, 5,
+    7, 6, 2, 7, 2, 4,
+    7, 5, 3, 7, 3, 6,
+  ];
+  const positions = [];
+  points.forEach((point) => {
+    positions.push(point.x, point.y, point.z);
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({
+      color,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide,
+      roughness: 0.6,
+      metalness: 0.05,
+      depthWrite: false,
+    }),
+  );
+  group.add(mesh);
+}
+
+function createVisualization(container) {
+  const scene = new THREE.Scene();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.domElement.style.width = '100%';
+  renderer.domElement.style.height = '100%';
+  container.appendChild(renderer.domElement);
+
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+  camera.position.set(5.4, 4.8, 5.8);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.enablePan = false;
+  controls.minDistance = 2.4;
+  controls.maxDistance = 18;
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.72);
+  const directional = new THREE.DirectionalLight(0xdfefff, 0.9);
+  directional.position.set(4, 6, 5);
+  scene.add(ambient, directional);
+
+  const grid = new THREE.GridHelper(10, 10, 0x36506c, 0x243447);
+  grid.position.y = -0.001;
+  scene.add(grid);
+
+  const axes = new THREE.AxesHelper(1.5);
+  axes.name = 'scene-axes';
+  scene.add(axes);
+
+  const origin = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 20, 20),
+    new THREE.MeshBasicMaterial({ color: 0xe5edf7 }),
+  );
+  scene.add(origin);
+
+  const dynamicGroup = new THREE.Group();
+  scene.add(dynamicGroup);
+
+  return {
+    container,
+    scene,
+    renderer,
+    camera,
+    controls,
+    dynamicGroup,
+    radius: 4,
+  };
+}
+
+function updateVisualizationSize(instance) {
+  const width = Math.max(instance.container.clientWidth, 1);
+  const height = Math.max(instance.container.clientHeight, 340);
+  instance.camera.aspect = width / height;
+  instance.camera.updateProjectionMatrix();
+  instance.renderer.setSize(width, height, false);
+}
+
+function focusVisualization(instance, radius) {
+  instance.radius = radius;
+  instance.camera.position.set(radius * 1.08, radius * 0.96, radius * 1.14);
+  instance.camera.near = 0.1;
+  instance.camera.far = Math.max(100, radius * 12);
+  instance.camera.updateProjectionMatrix();
+  instance.controls.target.set(0, 0, 0);
+  const axesHelper = instance.scene.getObjectByName('scene-axes');
+  if (axesHelper) {
+    axesHelper.position.set(-radius * 0.82, 0, -radius * 0.82);
+  }
+  instance.controls.update();
+}
+
+function addArrow(group, vectorValues, color, { active = false, dashed = false } = {}) {
+  const directionVector = Array.isArray(vectorValues) ? toVector3(vectorValues) : vectorValues.clone();
+  const length = directionVector.length();
+  if (length < EPSILON) {
+    return;
+  }
+
+  const arrow = new THREE.ArrowHelper(
+    directionVector.clone().normalize(),
+    new THREE.Vector3(0, 0, 0),
+    length,
+    color.getHex(),
+    Math.min(0.3, length * 0.18),
+    Math.min(0.18, length * 0.1),
+  );
+
+  if (active) {
+    arrow.line.material.linewidth = 2;
+  }
+  if (dashed) {
+    arrow.line.material.transparent = true;
+    arrow.line.material.opacity = 0.28;
+    arrow.cone.material.transparent = true;
+    arrow.cone.material.opacity = 0.28;
+  } else if (!active) {
+    arrow.line.material.transparent = true;
+    arrow.line.material.opacity = 0.88;
+    arrow.cone.material.transparent = true;
+    arrow.cone.material.opacity = 0.88;
+  }
+
+  group.add(arrow);
+}
+
+function getVisibleNormalizedCount(step) {
+  if (step.type === 'normalize') {
+    return step.vectorIndex + 1;
+  }
+  return step.vectorIndex;
+}
+
+function renderInputSpace() {
+  const instance = visualizationState.instances[0];
+  const step = state.steps[state.currentStepIndex];
+  const rankDeficient = state.dependentCount > 0;
+  clearThreeGroup(instance.dynamicGroup);
+
+  const radius = computeSceneRadius(state.matrix);
+  focusVisualization(instance, radius);
+
+  state.matrix.forEach((vector, index) => {
+    addArrow(
+      instance.dynamicGroup,
+      vector,
+      colorToThree(index),
+      { active: index === step.vectorIndex },
+    );
+  });
+
+  const determinant = (
+    state.matrix[0][0] * (state.matrix[1][1] * state.matrix[2][2] - state.matrix[1][2] * state.matrix[2][1]) -
+    state.matrix[0][1] * (state.matrix[1][0] * state.matrix[2][2] - state.matrix[1][2] * state.matrix[2][0]) +
+    state.matrix[0][2] * (state.matrix[1][0] * state.matrix[2][1] - state.matrix[1][1] * state.matrix[2][0])
+  );
+  if (Math.abs(determinant) >= EPSILON) {
+    addSceneFrame(instance.dynamicGroup, state.matrix, new THREE.Color('#7cc7d9'));
+  }
+
+  inputSpaceNote.textContent = rankDeficient
+    ? 'The input rows do not span a full 3D volume, so one direction collapses into the span of the earlier vectors.'
+    : `The highlighted row is v${step.vectorIndex + 1}. Together, the three input rows span a full 3D volume.`;
+}
+
+function renderOrthonormalSpace() {
+  const instance = visualizationState.instances[1];
+  const step = state.steps[state.currentStepIndex];
+  clearThreeGroup(instance.dynamicGroup);
+
+  const visibleCount = getVisibleNormalizedCount(step);
+  const visibleVectors = state.normalizedRows.slice(0, visibleCount).filter((vector) => magnitude(vector) >= EPSILON);
+  const sceneVectors = visibleVectors.length > 0 ? visibleVectors : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const radius = computeSceneRadius(sceneVectors);
+  focusVisualization(instance, radius);
+
+  const determinant = (
+    state.matrix[0][0] * (state.matrix[1][1] * state.matrix[2][2] - state.matrix[1][2] * state.matrix[2][1]) -
+    state.matrix[0][1] * (state.matrix[1][0] * state.matrix[2][2] - state.matrix[1][2] * state.matrix[2][0]) +
+    state.matrix[0][2] * (state.matrix[1][0] * state.matrix[2][1] - state.matrix[1][1] * state.matrix[2][0])
+  );
+  if (Math.abs(determinant) >= EPSILON) {
+    addParallelepipedMesh(instance.dynamicGroup, state.matrix, new THREE.Color('#7cc7d9'));
+    addSceneFrame(instance.dynamicGroup, state.matrix, new THREE.Color('#7cc7d9'));
+  }
+
+  state.normalizedRows.forEach((vector, index) => {
+    const isVisible = index < visibleCount && magnitude(vector) >= EPSILON;
+    if (!isVisible) {
+      return;
+    }
+    addArrow(
+      instance.dynamicGroup,
+      vector,
+      colorToThree(index),
+      { active: step.type === 'normalize' && index === step.vectorIndex },
+    );
+  });
+
+  if (visibleVectors.length === 0) {
+    const placeholder = new THREE.Mesh(
+      new THREE.TorusGeometry(0.5, 0.02, 12, 48),
+      new THREE.MeshBasicMaterial({ color: 0x4c647d, transparent: true, opacity: 0.36 }),
+    );
+    placeholder.rotation.x = Math.PI / 2;
+    instance.dynamicGroup.add(placeholder);
+  }
+
+  orthonormalNote.textContent = visibleCount === 0
+    ? 'No orthonormal row is available yet. The translucent V-space stays in view as geometric context.'
+    : step.type === 'normalize'
+      ? `The highlighted unit vector is e${step.vectorIndex + 1}. The translucent body shows the original span of V behind it.`
+      : `Rows e1 to e${visibleCount} are already locked as the orthonormal basis Q, with the original V-space kept as context.`;
+}
+
+function renderVisualizations() {
+  if (visualizationState.instances.length === 0 || state.steps.length === 0) {
+    return;
+  }
+  visualizationState.instances.forEach(updateVisualizationSize);
+  renderInputSpace();
+  renderOrthonormalSpace();
+}
+
+function animateVisualizations() {
+  visualizationState.frameHandle = window.requestAnimationFrame(animateVisualizations);
+  visualizationState.instances.forEach((instance) => {
+    instance.controls.update();
+    instance.renderer.render(instance.scene, instance.camera);
+  });
+}
+
+function initVisualizations() {
+  visualizationState.instances = [
+    createVisualization(inputSpaceView),
+    createVisualization(orthonormalView),
+  ];
+  visualizationState.instances.forEach(updateVisualizationSize);
+  window.addEventListener('resize', () => {
+    visualizationState.instances.forEach(updateVisualizationSize);
+  });
+  animateVisualizations();
 }
 
 function renderMath(scope = document.body) {
@@ -584,23 +934,61 @@ function renderWarning(step, dependentCount) {
 
 function renderLogs(step) {
   logBox.innerHTML = '';
-  const total = step.logs.length;
-  step.logs.forEach((message, index) => {
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
+  const stepsToRender = state.steps
+    .slice(0, state.currentStepIndex + 1)
+    .map((entryStep, stepIndex) => ({ entryStep, stepIndex }))
+    .reverse();
 
-    const number = document.createElement('div');
-    number.className = 'log-index';
-    number.textContent = `#${total - index}`;
+  stepsToRender.forEach(({ entryStep, stepIndex }) => {
+    const stepGroup = document.createElement('section');
+    stepGroup.className = 'log-step';
+    if (stepIndex === state.currentStepIndex) {
+      stepGroup.classList.add('current');
+    }
 
-    const content = document.createElement('div');
-    content.className = 'log-message';
-    content.textContent = message;
+    const header = document.createElement('div');
+    header.className = 'log-step-header';
 
-    entry.appendChild(number);
-    entry.appendChild(content);
-    logBox.appendChild(entry);
+    const badge = document.createElement('div');
+    badge.className = 'log-step-badge';
+    badge.textContent = `Step ${stepIndex + 1} · ${vectorLabel('v', entryStep.vectorIndex)}`;
+
+    const status = document.createElement('div');
+    status.className = 'log-step-status';
+    status.textContent = entryStep.type === 'normalize'
+      ? 'Normalization'
+      : entryStep.type === 'finalize'
+        ? 'Commit'
+        : entryStep.type === 'initialize'
+          ? 'Initialization'
+          : `Projection ${entryStep.projectionIndex + 1}`;
+
+    header.appendChild(badge);
+    header.appendChild(status);
+    stepGroup.appendChild(header);
+
+    const total = entryStep.logs.length;
+    entryStep.logs.forEach((message, index) => {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+
+      const number = document.createElement('div');
+      number.className = 'log-index';
+      number.textContent = `#${total - index}`;
+
+      const content = document.createElement('div');
+      content.className = 'log-message';
+      content.textContent = message;
+
+      entry.appendChild(number);
+      entry.appendChild(content);
+      stepGroup.appendChild(entry);
+    });
+
+    logBox.appendChild(stepGroup);
   });
+
+  logBox.scrollTop = 0;
 }
 
 function updateMeta(step, dependentCount) {
@@ -644,6 +1032,7 @@ function renderAll() {
   renderWarning(step, state.dependentCount);
   renderLogs(step);
   updateMeta(step, state.dependentCount);
+  renderVisualizations();
 }
 
 function goToStep(index) {
@@ -739,6 +1128,7 @@ function bindEvents() {
 
 function init() {
   state.matrix = matrixToRows(sampleFactories.default(state.dimension));
+  initVisualizations();
   bindEvents();
   rebuildComputation(true);
   renderModalContent();
