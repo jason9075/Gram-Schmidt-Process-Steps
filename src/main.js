@@ -400,6 +400,7 @@ function createVisualization(container) {
     controls,
     dynamicGroup,
     radius: 4,
+    frameKey: null,
   };
 }
 
@@ -423,6 +424,14 @@ function focusVisualization(instance, radius) {
     axesHelper.position.set(-radius * 0.82, 0, -radius * 0.82);
   }
   instance.controls.update();
+}
+
+function ensureVisualizationFocus(instance, radius, frameKey) {
+  if (instance.frameKey === frameKey) {
+    return;
+  }
+  focusVisualization(instance, radius);
+  instance.frameKey = frameKey;
 }
 
 function addArrow(group, vectorValues, color, { active = false, dashed = false } = {}) {
@@ -473,7 +482,7 @@ function renderInputSpace() {
   clearThreeGroup(instance.dynamicGroup);
 
   const radius = computeSceneRadius(state.matrix);
-  focusVisualization(instance, radius);
+  ensureVisualizationFocus(instance, radius, JSON.stringify(state.matrix));
 
   state.matrix.forEach((vector, index) => {
     addArrow(
@@ -507,7 +516,7 @@ function renderOrthonormalSpace() {
   const visibleVectors = state.normalizedRows.slice(0, visibleCount).filter((vector) => magnitude(vector) >= EPSILON);
   const sceneVectors = visibleVectors.length > 0 ? visibleVectors : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
   const radius = computeSceneRadius(sceneVectors);
-  focusVisualization(instance, radius);
+  ensureVisualizationFocus(instance, radius, `orthonormal:${JSON.stringify(state.matrix)}`);
 
   const determinant = (
     state.matrix[0][0] * (state.matrix[1][1] * state.matrix[2][2] - state.matrix[1][2] * state.matrix[2][1]) -
